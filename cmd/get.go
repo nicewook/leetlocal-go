@@ -16,11 +16,14 @@ limitations under the License.
 package cmd
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -204,12 +207,77 @@ func getProblems(cmd *cobra.Command, problems []string) {
 		// make dir
 		os.Mkdir(pNum, 0600)
 		os.Chdir(pNum)
+
 		// download go
 		cmd := exec.Command(leetcodecli, "show", pNum, "-gx", "-l", "golang")
 		if err := cmd.Run(); err != nil {
 			fmt.Println(err)
 			return
 		}
+
+		// readfile and parsing
+		files, err := ioutil.ReadDir(".")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, file := range files {
+			var (
+				funcName string
+				inputs   []string
+				outputs  []string
+			)
+
+			fmt.Println(file.Name())
+			// f, err := os.OpenFile(".\\"+file.Name(), os.O_APPEND|os.O_WRONLY, 0600)
+			f, err := os.Open(file.Name())
+			if err != nil {
+				fmt.Print("There has been an error!: ", err)
+			}
+
+			scanner := bufio.NewScanner(f)
+
+			for scanner.Scan() {
+				if strings.Contains(scanner.Text(), "Input: ") {
+					text := string(scanner.Text()[9:])
+					text = strings.Replace(text, "=", ":=", -1)
+					text = strings.Replace(text, ",", ";", -1)
+					inputs = append(inputs, text)
+				}
+				if strings.Contains(scanner.Text(), "Output: ") {
+					text := string(scanner.Text()[10:])
+					outputs = append(outputs, text)
+				}
+
+				if len(scanner.Text()) > 5 && scanner.Text()[:5] == "func " {
+					text := scanner.Text()
+					text = strings.Replace(text, "string", "", -1)
+					text = strings.SplitAfter(text, ")")[0]
+					// funcName = strings.Trim(text, "func ")
+					fmt.Println("func name", text)
+				}
+			}
+			fmt.Println("inputs: ", inputs)
+			fmt.Println("outputs: ", outputs)
+			defer f.Close()
+
+			f, err = os.OpenFile(file.Name(), os.O_APPEND|os.O_WRONLY, 0600)
+			mainFunc := fmt.Sprint("func main() {\n")
+			for i := 0; i < len(inputs); i++ {
+				mainFunc += fmt.Sprintf("  %s\n", inputs[i])
+				mainFunc += fmt.Sprintf("  fmt.Println(%s) // expect %s\n", funcName, outputs[i])
+				fmt.Println("main func: ", mainFunc)
+			}
+			mainFunc += "}\n"
+
+			fmt.Println("main func: ", mainFunc)
+			fmt.Println("len: ", len(inputs), len(outputs))
+
+			if _, err = f.WriteString(mainFunc); err != nil {
+				panic(err)
+			}
+		}
+
 		os.Chdir("..")
 
 		// rename == move
