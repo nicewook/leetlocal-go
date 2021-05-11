@@ -241,11 +241,15 @@ func getProblems(cmd *cobra.Command, problems []string) {
 				if strings.Contains(scanner.Text(), "Input: ") {
 					text := string(scanner.Text()[9:])
 					text = strings.Replace(text, "=", ":=", -1)
-					text = strings.Replace(text, ",", ";", -1)
+					text = strings.Replace(text, "[", "{", -1)
+					text = strings.Replace(text, "]", "}", -1)
+					// text = strings.Replace(text, ",", ";", -1)
 					inputs = append(inputs, text)
 				}
 				if strings.Contains(scanner.Text(), "Output: ") {
 					text := string(scanner.Text()[10:])
+					text = strings.Replace(text, "[", "{", -1)
+					text = strings.Replace(text, "]", "}", -1)
 					outputs = append(outputs, text)
 				}
 
@@ -254,7 +258,7 @@ func getProblems(cmd *cobra.Command, problems []string) {
 					text = strings.Replace(text, "string", "", -1)
 					text = strings.SplitAfter(text, ")")[0]
 					// funcName = strings.Trim(text, "func ")
-					fmt.Println("func name", text)
+					// fmt.Println("func name", text)
 				}
 			}
 			fmt.Println("inputs: ", inputs)
