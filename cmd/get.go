@@ -30,6 +30,7 @@ import (
 
 const (
 	leetcodeExe = "leetcode-cli.exe"
+	problemDir  = "problems"
 )
 
 var (
@@ -205,6 +206,8 @@ func getProblems(cmd *cobra.Command, problems []string) {
 
 	for _, pNum := range problems {
 		// make dir
+		os.Mkdir(problemDir, 0600)
+		os.Chdir(problemDir)
 		os.Mkdir(pNum, 0600)
 		os.Chdir(pNum)
 
@@ -282,7 +285,7 @@ func getProblems(cmd *cobra.Command, problems []string) {
 			}
 		}
 
-		os.Chdir("..")
+		os.Chdir("../..")
 
 		// rename == move
 
