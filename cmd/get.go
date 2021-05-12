@@ -223,74 +223,89 @@ func getProblems(cmd *cobra.Command, problems []string) {
 		if err != nil {
 			log.Fatal(err)
 		}
+		filename := files[0].Name()
 
-		for _, file := range files {
-			var (
-				funcName string
-				inputs   []string
-				outputs  []string
-			)
+		// parse inputs, outputs, funcname
+		var (
+			funcname   string
+			returnType string
+			inputs     []string
+			outputs    []string
+		)
 
-			fmt.Println(file.Name())
-			// f, err := os.OpenFile(".\\"+file.Name(), os.O_APPEND|os.O_WRONLY, 0600)
-			f, err := os.Open(file.Name())
-			if err != nil {
-				fmt.Print("There has been an error!: ", err)
-			}
+		f, err := os.Open(filename)
+		if err != nil {
+			fmt.Print("There has been an error!: ", err)
+		}
+		defer f.Close()
 
-			scanner := bufio.NewScanner(f)
-
-			for scanner.Scan() {
-				if strings.Contains(scanner.Text(), "Input: ") {
-					text := string(scanner.Text()[9:])
+		scanner := bufio.NewScanner(f)
+		isFirstTime := true
+		for scanner.Scan() {
+			if strings.Contains(scanner.Text(), "Input: ") {
+				text := string(scanner.Text()[9:])
+				if isFirstTime {
 					text = strings.Replace(text, "=", ":=", -1)
-					text = strings.Replace(text, "[", "{", -1)
-					text = strings.Replace(text, "]", "}", -1)
-					// text = strings.Replace(text, ",", ";", -1)
-					inputs = append(inputs, text)
 				}
-				if strings.Contains(scanner.Text(), "Output: ") {
-					text := string(scanner.Text()[10:])
-					text = strings.Replace(text, "[", "{", -1)
-					text = strings.Replace(text, "]", "}", -1)
-					outputs = append(outputs, text)
-				}
-
-				if len(scanner.Text()) > 5 && scanner.Text()[:5] == "func " {
-					text := scanner.Text()
-					text = strings.Replace(text, "string", "", -1)
-					text = strings.SplitAfter(text, ")")[0]
-					// funcName = strings.Trim(text, "func ")
-					// fmt.Println("func name", text)
-				}
+				text = strings.Replace(text, "[", "[]int{", -1)
+				text = strings.Replace(text, "]", "}", -1)
+				inputs = append(inputs, text)
 			}
-			fmt.Println("inputs: ", inputs)
-			fmt.Println("outputs: ", outputs)
-			defer f.Close()
-
-			f, err = os.OpenFile(file.Name(), os.O_APPEND|os.O_WRONLY, 0600)
-			mainFunc := fmt.Sprint("func main() {\n")
-			for i := 0; i < len(inputs); i++ {
-				mainFunc += fmt.Sprintf("  %s\n", inputs[i])
-				mainFunc += fmt.Sprintf("  fmt.Println(%s) // expect %s\n", funcName, outputs[i])
-				fmt.Println("main func: ", mainFunc)
+			if strings.Contains(scanner.Text(), "Output: ") {
+				text := string(scanner.Text()[10:])
+				text = strings.Replace(text, "[", "[]int{", -1)
+				text = strings.Replace(text, "]", "}", -1)
+				outputs = append(outputs, text)
 			}
-			mainFunc += "}\n"
 
-			fmt.Println("main func: ", mainFunc)
-			fmt.Println("len: ", len(inputs), len(outputs))
+			if len(scanner.Text()) > 5 && scanner.Text()[:5] == "func " {
+				text := scanner.Text()
+				text = strings.Replace(text, "string", "", -1)
 
-			if _, err = f.WriteString(mainFunc); err != nil {
-				panic(err)
+				textSlice := strings.SplitAfter(text, ")")
+				text = textSlice[0]
+				funcname = strings.Trim(text, "func ")
+				returnType = strings.Split(textSlice[1], " ")[0]
 			}
 		}
 
+		f2, err := ioutil.ReadFile(filename)
+		if err != nil {
+			log.Fatal(err)
+		}
+		lines := strings.Split(string(f2), "*/")
+		lines = append(lines, "")
+		copy(lines[:2], lines[1:])
+		lines[1] = "package main"
+
+		output := strings.Join(lines, "\n")
+		err = ioutil.WriteFile(filename, []byte(output), 0644)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		f3, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f3.Close()
+		fmt.Println(returnType)
+		mainFunc := fmt.Sprint("func main() {\n")
+		for i := 0; i < len(inputs); i++ {
+			mainFunc += fmt.Sprintf("  %s\n", inputs[i])
+			mainFunc += fmt.Sprintf("  fmt.Println(%s) // expect %s\n\n", funcname, outputs[i])
+			fmt.Println("main func: ", mainFunc)
+		}
+		mainFunc += "}\n"
+
+		fmt.Println("main func: ", mainFunc)
+		fmt.Println("len: ", len(inputs), len(outputs))
+
+		if _, err = f.WriteString(mainFunc); err != nil {
+			panic(err)
+		}
+
 		os.Chdir("../..")
-
-		// rename == move
-
-		// do the job
-
 	}
 }
 
